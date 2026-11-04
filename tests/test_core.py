@@ -51,3 +51,24 @@ def test_status():
     db.record_application(p, "submitted")
     assert db.set_status("co", "interview") == 1
     assert db.applications()[0][1] == "interview"
+
+
+def test_run_end_to_end(tmp_path, monkeypatch):
+    """Whole run() with fake sources: filters, dedupes, saves, exports."""
+    import yaml
+    from internbot import cli
+    monkeypatch.chdir(tmp_path)
+    cfg = {"keywords": ["research intern"], "topics": ["LLM"], "db_path": "t.db", "export_csv": "out/n.csv",
+           "sources": {}, "target_only": False}
+    open("c.yaml", "w").write(yaml.safe_dump(cfg))
+    good = Posting("ashby", "Research Intern", "Cohere", "https://a/1", "", "LLM stuff", "")
+    dup = Posting("linkedin", "Research Intern", "Cohere", "https://l/9", "", "LLM stuff", "")
+    bad = Posting("ashby", "Sales Intern", "Cohere", "https://a/2", "", "LLM", "")
+    monkeypatch.setattr(cli.web, "fetch", lambda s: iter([good, bad]))
+    monkeypatch.setattr(cli.linkedin, "fetch", lambda s: iter([dup]))
+    cfg["sources"] = {"linkedin": {"enabled": True}}
+    open("c.yaml", "w").write(yaml.safe_dump(cfg))
+    cli.run("c.yaml")
+    assert open("out/n.csv").read().count("Research Intern") == 1  # deduped, sales filtered
+    cli.run("c.yaml")  # second run: nothing new
+    assert open("out/n.csv").read().count("Research Intern") == 1

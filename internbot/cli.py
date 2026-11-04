@@ -46,24 +46,23 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
     if src.get("twitter", {}).get("enabled"):
         streams.append(twitter.fetch(src["twitter"]))
     new, seen_keys = [], set()
+    max_age = cfg.get("max_age_days", 120)
     for stream in streams:
         try:
             for p in stream:
-                if matches(p, cfg["keywords"], cfg.get("exclude", []), cfg.get("locations", []),
-                           cfg.get("topics", []), cfg.get("exclude_companies", []), targets):
-                    key = (canon(p.company), p.title.lower().strip())
+                if not matches(p, cfg["keywords"], cfg.get("exclude", []), cfg.get("locations", []),
+                               cfg.get("topics", []), cfg.get("exclude_companies", []), targets):
+                    continue
+                if p.source in ("linkedin", "twitter") and too_old(p, max_age):  # company boards only list live jobs
+                    continue
+                key = (canon(p.company), p.title.lower().strip())
                 if key in seen_keys and p.source in ("linkedin", "twitter"):
                     continue  # same role already found (e.g. LinkedIn lists one per location)
                 seen_keys.add(key)
                 if dry or db.add_if_new(p):
-                        new.append(p)
+                    new.append(p)
         except Exception as e:  # one broken source must not kill the run
             print(f"[source error] {type(e).__name__}: {e}")
-    for p in new:
-        tag = f" ({p.score}: {p.reason})" if p.score >= 0 else ""
-        print(f"[{p.source}] {p.title} | {p.company} | {p.location}{tag}\n    {p.url}")
-    print(f"\n{len(new)} new matching postings")
-    new = [p for p in new if not too_old(p, cfg.get("max_age_days", 120))]
     if new and llm.enabled() and cfg.get("score_with_llm", True) and os.path.exists("profile.yaml"):
         prof = yaml.safe_load(open("profile.yaml"))
         res = llm.resume_text(prof.get("resume", ""))
@@ -74,6 +73,10 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
         new = sorted([p for p in new if p.score < 0 or p.score >= floor], key=lambda p: -p.score)
         if skipped:
             print(f"[score] {len(skipped)} postings below {floor} skipped")
+    for p in new:
+        tag = f" ({p.score}: {p.reason})" if p.score >= 0 else ""
+        print(f"[{p.source}] {p.title} | {p.company} | {p.location}{tag}\n    {p.url}")
+    print(f"\n{len(new)} new matching postings")
     for p in new:
         if not dry:
             db.add_contact(p)
