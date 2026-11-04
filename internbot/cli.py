@@ -1,6 +1,6 @@
 import argparse, os, random, time, traceback, yaml
 from .db import DB
-from .filters import matches
+from .filters import matches, target_names, canon
 from .notify import export_csv, webhook
 from .sources import web, linkedin, twitter
 from . import apply as applier
@@ -29,22 +29,32 @@ def export_applications(db, path="out/applications.csv"):
         w.writerows(db.contacts())
 
 
-def run(cfg_path="config.yaml", dry=False, apply=False, submit=False):
+def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_flag=False):
     cfg = yaml.safe_load(open(cfg_path))
     db = DB(cfg.get("db_path", "internbot.db"))
     src = cfg.get("sources", {})
-    streams = [web.fetch(src)]
+    targets = None
+    if cfg.get("target_only") and os.path.exists(cfg.get("targets_file", "targets.yaml")):
+        tl = yaml.safe_load(open(cfg.get("targets_file", "targets.yaml")))["companies"]
+        targets = target_names(tl)
+        streams = [web.fetch_targets(tl)]
+    else:
+        streams = [web.fetch(src)]
     if src.get("linkedin", {}).get("enabled"):
         streams.append(linkedin.fetch(src["linkedin"]))
     if src.get("twitter", {}).get("enabled"):
         streams.append(twitter.fetch(src["twitter"]))
-    new = []
+    new, seen_keys = [], set()
     for stream in streams:
         try:
             for p in stream:
                 if matches(p, cfg["keywords"], cfg.get("exclude", []), cfg.get("locations", []),
-                           cfg.get("topics", []), cfg.get("exclude_companies", [])):
-                    if dry or db.add_if_new(p):
+                           cfg.get("topics", []), cfg.get("exclude_companies", []), targets):
+                    key = (canon(p.company), p.title.lower().strip())
+                if key in seen_keys and p.source in ("linkedin", "twitter"):
+                    continue  # same role already found (e.g. LinkedIn lists one per location)
+                seen_keys.add(key)
+                if dry or db.add_if_new(p):
                         new.append(p)
         except Exception as e:  # one broken source must not kill the run
             print(f"[source error] {type(e).__name__}: {e}")
@@ -54,6 +64,9 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False):
     for p in new:
         if not dry:
             db.add_contact(p)
+    if outreach_flag and new:
+        from . import outreach
+        outreach.draft_all(new, db if not dry else None)
     if apply and not dry and new:
         if not os.path.exists("profile.yaml"):
             print("[apply] profile.yaml missing (copy profile.example.yaml)")
@@ -73,6 +86,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="don't save/export/notify")
     ap.add_argument("--apply", action="store_true", help="auto-fill Greenhouse/Lever forms for new postings (no submit)")
     ap.add_argument("--submit", action="store_true", help="with --apply: actually submit applications")
+    ap.add_argument("--outreach", action="store_true", help="draft personalised cold emails/DMs for new postings (never sends)")
     ap.add_argument("--applied", action="store_true", help="print the running list of applications and exit")
     ap.add_argument("--contacts", action="store_true", help="print Twitter handles collected and exit")
     ap.add_argument("--harvest", action="store_true", help="read-only crawl of application forms to collect questions into answers.yaml")
@@ -103,11 +117,11 @@ def main():
                 print(" | ".join(str(x) for x in r))
         return
     if not a.watch:
-        return run(a.config, a.dry_run, a.apply, a.submit)
+        return run(a.config, a.dry_run, a.apply, a.submit, a.outreach)
     mins = a.interval or yaml.safe_load(open(a.config)).get("interval_minutes", 30)
     while True:
         try:
-            run(a.config, a.dry_run, a.apply, a.submit)
+            run(a.config, a.dry_run, a.apply, a.submit, a.outreach)
         except Exception:
             traceback.print_exc()  # never die; try again next cycle
         wait = mins * 60 * random.uniform(0.85, 1.15)  # jitter

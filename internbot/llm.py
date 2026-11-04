@@ -65,3 +65,26 @@ def answer(question: str, options, profile: dict, job_text: str, resume: str = "
         match = next((o for o in options if o.strip().lower() == text.lower()), None)
         return match  # must be a real option
     return text
+
+
+OUTREACH_SYSTEM = """You write short cold outreach (email or DM) from a student to someone at a top AI startup
+about a research internship. Rules: 80-120 words, plain and specific, no flattery or clichés, no 'I hope this
+finds you well'. Lead with one concrete, TRUE connection between the candidate's background and the role/team
+(use ONLY facts from the profile/resume - never invent). One clear ask (a short chat or being considered).
+If the recipient name is unknown, address it to 'the team' -- never make up a name.
+Output format exactly:
+SUBJECT: <short subject>
+<body>"""
+
+
+def draft_outreach(posting, profile: dict, resume: str = "", recipient: str = "", client=None) -> str:
+    facts = {k: v for k, v in profile.items() if k not in ("answers", "apply", "resume")}
+    prompt = (f"CANDIDATE PROFILE:\n{facts}\n\nRESUME:\n{resume or '(none)'}\n\n"
+              f"ROLE: {posting.title} at {posting.company} ({posting.location})\nPOSTING / POST TEXT:\n"
+              f"{(posting.description or posting.title)[:5000]}\n\nRECIPIENT: {recipient or 'unknown (hiring team)'}\n"
+              f"SOURCE: {posting.source}  LINK: {posting.url}")
+    resp = (client or _get()).messages.create(
+        model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=700,
+        system=OUTREACH_SYSTEM, output_config={"effort": "low"},
+        messages=[{"role": "user", "content": prompt}])
+    return next((b.text for b in resp.content if b.type == "text"), "").strip()

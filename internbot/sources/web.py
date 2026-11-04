@@ -44,3 +44,27 @@ def _safe(fn, arg):
         yield from fn(arg)
     except Exception as e:
         print(f"[web] {fn.__name__}({arg}) failed: {e}")
+
+
+def ashby(token, name=None):
+    data = get(f"https://api.ashbyhq.com/posting-api/job-board/{token}").json()
+    for j in data.get("jobs", []):
+        yield Posting("ashby", j["title"], name or token, j.get("jobUrl", ""),
+                      j.get("location", "") or "", j.get("descriptionPlain", "") or "", j.get("publishedAt", "") or "")
+
+
+def fetch_targets(targets):
+    """targets: list of {name, ats, token} (targets.yaml). Company on each Posting = display name."""
+    for t in targets:
+        try:
+            if t["ats"] == "greenhouse":
+                gen = greenhouse(t["token"])
+            elif t["ats"] == "lever":
+                gen = lever(t["token"])
+            else:
+                gen = ashby(t["token"], t["name"])
+            for p in gen:
+                p.company = t["name"]
+                yield p
+        except Exception as e:
+            print(f"[targets] {t['name']} failed: {type(e).__name__}")

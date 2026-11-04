@@ -29,3 +29,10 @@ def test_ai_startup_focus():
     assert matches(ai, KW, EX, [], tp, ex_c)
     assert not matches(Posting("x", "Research Intern", "TinyAI", "https://a.com/3", "", "Equity research"), KW, EX, [], tp, ex_c)
     assert not matches(Posting("x", "Research Intern", "Google", "https://a.com/4", "", "LLM"), KW, EX, [], tp, ex_c)
+
+
+def test_target_filter():
+    from internbot.filters import target_names, is_target
+    names = target_names([{"name": "Scale AI"}, {"name": "Cursor (Anysphere)"}, {"name": "Thinking Machines Lab"}])
+    assert is_target("Scale", names) and is_target("Anysphere", names) and is_target("Thinking Machines", names)
+    assert not is_target("Random Startup Inc", names)
