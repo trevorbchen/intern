@@ -90,3 +90,11 @@ interval_minutes: 30   # used by --watch
 db_path: internbot.db
 export_csv: out/new_internships.csv
 webhook_url: ""
+
+# Boards read by --harvest to collect application questions (read-only; includes non-AI startups
+# because their form questions are the same kind you'll see everywhere).
+harvest:
+  greenhouse: [anthropic, scaleai, databricks, togetherai, stabilityai, figma, stripe, vercel, brex, ramp,
+               discord, duolingo, fivetran, sambanovasystems, mercury, assemblyai, observeai, airtable,
+               lattice, mixpanel, gusto, verkada, samsara, robinhood, affirm, reddit, instacart, asana]
+  lever: [mistral, palantir]

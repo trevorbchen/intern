@@ -75,10 +75,23 @@ def main():
     ap.add_argument("--submit", action="store_true", help="with --apply: actually submit applications")
     ap.add_argument("--applied", action="store_true", help="print the running list of applications and exit")
     ap.add_argument("--contacts", action="store_true", help="print Twitter handles collected and exit")
+    ap.add_argument("--harvest", action="store_true", help="read-only crawl of application forms to collect questions into answers.yaml")
+    ap.add_argument("--per-board", type=int, default=4, help="forms to read per company when harvesting")
+    ap.add_argument("--answer", action="store_true", help="interactively answer the collected questions (saved permanently)")
     ap.add_argument("--watch", action="store_true", help="run forever, re-scraping on an interval")
     ap.add_argument("--interval", type=int, help="minutes between runs (default: config interval_minutes or 30)")
     a = ap.parse_args()
     load_env()
+    if a.harvest:
+        from . import harvest as H
+        full = yaml.safe_load(open(a.config))
+        H.harvest(full.get("harvest") or full["sources"], a.per_board)
+        if os.path.exists("profile.yaml"):
+            print(f"prefilled {H.prefill_from_profile(yaml.safe_load(open('profile.yaml')))} from profile answers")
+        return
+    if a.answer:
+        from . import harvest as H
+        return H.interactive()
     if a.applied or a.contacts:
         db = DB(yaml.safe_load(open(a.config)).get("db_path", "internbot.db"))
         if a.applied:

@@ -101,7 +101,9 @@ def fill_answers(page, profile: dict, job_text: str = "", llm_client=None):
     """Answer questions: first by profile `answers` regexes, then (if enabled) by Claude.
     Returns the list of question labels that Claude answered."""
     from . import llm
+    from . import bank
     pats = [(re.compile(k, re.I), str(v)) for k, v in (profile.get("answers") or {}).items()]
+    entries = bank.load()
     use_llm = (llm.enabled() or llm_client is not None) and profile.get("apply", {}).get("use_llm", True)
     resume = llm.resume_text(profile.get("resume", "")) if use_llm else ""
     llm_used = []
@@ -113,7 +115,7 @@ def fill_answers(page, profile: dict, job_text: str = "", llm_client=None):
             label = _full_label(el)
             tag = el.evaluate("e => e.tagName.toLowerCase()")
             combo = el.get_attribute("role") == "combobox"
-            ans = next((v for rx, v in pats if rx.search(label)), None)
+            ans = bank.lookup(entries, label) or next((v for rx, v in pats if rx.search(label)), None)
             by_llm = False
             if ans is None:
                 if not (use_llm and _required(el) and not _is_filled(el) and label):
