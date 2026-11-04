@@ -9,6 +9,10 @@ github: ""
 location: "Boston, MA"
 school: "Example University"
 resume: ~/resume.pdf
+interests:            # used to find researchers whose work is similar to yours
+  - reinforcement learning
+  - interpretability
+  - language models
 background: >
   2-4 sentences about you: year/major, research experience, projects, skills. Claude may ONLY use
   facts from this field and your resume - so put the real details here.

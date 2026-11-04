@@ -44,3 +44,11 @@ Everything is also written to `out/applications.csv` and `out/contacts.csv`. Any
 - Track replies: `python -m internbot.cli --status Cohere interview` (replied | interview | rejected | offer), then `--applied`.
 - Question bank: `--harvest` collects real application questions into `answers.yaml`; `--answer` fills them in interactively.
 - `.github/workflows/scrape.yml` runs web + LinkedIn every 6 hours (secrets: `INTERNBOT_WEBHOOK`, `ANTHROPIC_API_KEY`); X crawling needs your own machine.
+
+## Fellowships, researchers, dashboard
+- Fellowships/residencies are tagged **PROGRAM** and never auto-applied: they land in the dashboard's "Apply by hand" tab.
+  `programs.yaml` also watches MATS, Astra, SPAR, etc. (status open/closed, deadline, page-changed alerts). Add `deadline: YYYY-MM-DD` to put one on the calendar.
+- `python -m internbot.cli --researchers [--draft]` finds researchers at target companies whose recent papers overlap your `interests`
+  (OpenAlex, needs `OPENALEX_API_KEY`), and with `--draft` writes an email per researcher citing a specific paper. Nothing is sent.
+- `python -m internbot.cli --ui` rebuilds `out/dashboard.html` (open it in a browser) and `out/deadlines.ics` (import into your calendar).
+  Every normal run rebuilds both.

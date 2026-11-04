@@ -11,6 +11,12 @@ class DB:
         self.c.execute("""CREATE TABLE IF NOT EXISTS applications(
             uid TEXT PRIMARY KEY, title TEXT, company TEXT, url TEXT, source TEXT,
             status TEXT, note TEXT, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        self.c.execute("""CREATE TABLE IF NOT EXISTS programs(
+            name TEXT PRIMARY KEY, url TEXT, status TEXT, deadline TEXT, text_hash TEXT,
+            changed INTEGER DEFAULT 0, last_checked TEXT)""")
+        self.c.execute("""CREATE TABLE IF NOT EXISTS researchers(
+            author_id TEXT PRIMARY KEY, name TEXT, company TEXT, score REAL, papers TEXT, url TEXT,
+            draft TEXT DEFAULT '', contacted INTEGER DEFAULT 0, found_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
         self.c.execute("""CREATE TABLE IF NOT EXISTS contacts(
             handle TEXT, tweet_url TEXT PRIMARY KEY, apply_url TEXT, text TEXT,
             messaged INTEGER DEFAULT 0, first_seen TEXT DEFAULT CURRENT_TIMESTAMP)""")
@@ -54,3 +60,36 @@ class DB:
                              (status, note, f"%{company_substr.lower()}%"))
         self.c.commit()
         return cur.rowcount
+
+    def all_postings(self):
+        return self.c.execute("SELECT first_seen,source,company,title,location,url FROM postings "
+                              "ORDER BY first_seen DESC").fetchall()
+
+    def program_rows(self):
+        return self.c.execute("SELECT name,url,status,deadline,changed,last_checked FROM programs").fetchall()
+
+    def upsert_program(self, name, url, status, deadline, text_hash):
+        old = self.c.execute("SELECT text_hash FROM programs WHERE name=?", (name,)).fetchone()
+        changed = 1 if (old and old[0] and text_hash and old[0] != text_hash) else 0
+        self.c.execute("""INSERT INTO programs(name,url,status,deadline,text_hash,changed,last_checked)
+            VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(name) DO UPDATE SET url=excluded.url,
+            status=excluded.status, deadline=COALESCE(excluded.deadline, deadline),
+            text_hash=excluded.text_hash, changed=excluded.changed, last_checked=CURRENT_TIMESTAMP""",
+            (name, url, status, deadline, text_hash, changed))
+        self.c.commit()
+        return bool(changed)
+
+    def upsert_researcher(self, r):
+        import json
+        self.c.execute("""INSERT INTO researchers(author_id,name,company,score,papers,url) VALUES(?,?,?,?,?,?)
+            ON CONFLICT(author_id) DO UPDATE SET score=excluded.score, papers=excluded.papers""",
+            (r["author_id"], r["name"], r["company"], r["score"], json.dumps(r["papers"]), r["url"]))
+        self.c.commit()
+
+    def researchers(self):
+        return self.c.execute("SELECT author_id,name,company,score,papers,url,draft,contacted FROM researchers "
+                              "ORDER BY score DESC").fetchall()
+
+    def set_draft(self, author_id, draft):
+        self.c.execute("UPDATE researchers SET draft=? WHERE author_id=?", (draft, author_id))
+        self.c.commit()

@@ -11,6 +11,11 @@ keywords:        # posting must be an internship/research role matching one of t
   - ML intern
   - AI intern
   - summer research
+  - fellow
+  - fellowship
+  - residency
+  - resident
+  - scholar
 topics:          # ... AND mention at least one of these AI topics
   - AI
   - machine learning
@@ -90,8 +95,7 @@ sources:
 
 interval_minutes: 30   # used by --watch
 max_age_days: 120      # ignore postings older than this
-score_with_llm: true   # Claude rates fit 0-100 (needs ANTHROPIC_API_KEY + profile.yaml)
-min_score: 60          # below this: skipped (not applied / notified)
+score_with_llm: false  # optional Claude fit score; off - we apply to everything that matches
 db_path: internbot.db
 export_csv: out/new_internships.csv
 webhook_url: ""

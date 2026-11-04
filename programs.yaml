@@ -1,0 +1,41 @@
+# Residencies / fellowships / research programs to watch. Apply to these BY HAND (the dashboard lists them).
+# auto_check: the bot loads the page, detects open/closed + deadline, and alerts when the page changes.
+# deadline: set manually (YYYY-MM-DD) when you know it; shows on the calendar.
+- name: Anthropic Fellows Program
+  url: https://job-boards.greenhouse.io/anthropic/jobs/5023394008
+  kind: fellowship
+  note: Rolling cohorts via Constellation; US/UK/Canada work auth, no visa sponsorship. Several tracks (safety, security, RL, ML systems).
+- name: MATS (ML Alignment & Theory Scholars)
+  url: https://www.matsprogram.org/
+  kind: fellowship
+- name: Astra Fellowship (Constellation)
+  url: https://www.constellation.org/programs/astra-fellowship
+  kind: fellowship
+- name: SPAR (AI risk research program)
+  url: https://sparai.org/
+  kind: fellowship
+- name: ERA Fellowship
+  url: https://erafellowship.org/
+  kind: fellowship
+- name: Pivotal Research Fellowship
+  url: https://www.pivotal-research.org/fellowship
+  kind: fellowship
+- name: LASR Labs
+  url: https://www.lasrlabs.org/
+  kind: fellowship
+- name: Cohere Labs Scholars Program
+  url: https://cohere.com/research/scholars-program
+  kind: fellowship
+- name: AI Safety Camp
+  url: https://aisafety.camp/
+  kind: program
+- name: Apart Research
+  url: https://apartresearch.com/
+  kind: program
+- name: FAR.AI
+  url: https://far.ai/
+  kind: program
+- name: OpenAI residency / early-career programs
+  url: https://openai.com/careers/
+  kind: residency
+  auto_check: false   # site blocks automated fetches; check by hand

@@ -112,3 +112,25 @@ def score_posting(posting, profile: dict, resume: str = "", client=None):
         return (min(int(m.group(1)), 100), m.group(2).strip()) if m else (-1, "")
     except Exception:
         return -1, ""
+
+
+RESEARCHER_SYSTEM = """You write a short cold email from a student to a researcher at an AI startup, asking about
+research internship/collaboration opportunities. Rules: 90-130 words. Open with ONE specific, accurate point about
+their named paper (only what the title/topics support - never invent results or details you can't know). Then ONE
+true link to the candidate's own work (profile/resume facts only). Ask a small, concrete question or whether the
+team takes research interns. Plain, warm, not flattering, no clichés. Don't invent names beyond the given one.
+Output exactly:
+SUBJECT: <short subject>
+<body>"""
+
+
+def draft_researcher_outreach(name, company, papers, profile, resume="", client=None):
+    facts = {k: v for k, v in profile.items() if k not in ("answers", "apply", "resume")}
+    plist = "\n".join(f"- {p['title']} ({p.get('year')})" for p in papers)
+    prompt = (f"CANDIDATE PROFILE:\n{facts}\n\nRESUME:\n{resume[:4000] or '(none)'}\n\n"
+              f"RESEARCHER: {name} at {company}\nTHEIR RECENT PAPERS (most relevant first):\n{plist}")
+    resp = (client or _get()).messages.create(
+        model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=600,
+        system=RESEARCHER_SYSTEM, output_config={"effort": "low"},
+        messages=[{"role": "user", "content": prompt}])
+    return next((b.text for b in resp.content if b.type == "text"), "").strip()

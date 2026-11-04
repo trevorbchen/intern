@@ -1,6 +1,6 @@
 import argparse, os, random, time, traceback, yaml
 from .db import DB
-from .filters import matches, target_names, canon, too_old
+from .filters import matches, target_names, canon, too_old, is_program
 from . import llm
 from .notify import export_csv, webhook
 from .sources import web, linkedin, twitter
@@ -74,7 +74,7 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
         if skipped:
             print(f"[score] {len(skipped)} postings below {floor} skipped")
     for p in new:
-        tag = f" ({p.score}: {p.reason})" if p.score >= 0 else ""
+        tag = (f" ({p.score}: {p.reason})" if p.score >= 0 else "") + (" ** PROGRAM - apply by hand **" if is_program(p) else "")
         print(f"[{p.source}] {p.title} | {p.company} | {p.location}{tag}\n    {p.url}")
     print(f"\n{len(new)} new matching postings")
     for p in new:
@@ -88,9 +88,15 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
             print("[apply] profile.yaml missing (copy profile.example.yaml)")
         else:
             prof = yaml.safe_load(open("profile.yaml"))
-            applier.run_applications(new, prof, db, submit, prof.get("apply", {}).get("max_per_run", 5))
+            applier.run_applications([p for p in new if not is_program(p)], prof, db, submit, prof.get("apply", {}).get("max_per_run", 5))
     if not dry:
         export_applications(db)
+        try:
+            from . import programs, ui
+            programs.check_all(db)
+            print(f"[ui] dashboard: {ui.build(db)}")
+        except Exception as e:
+            print(f"[ui] skipped: {type(e).__name__}: {e}")
     if not dry:
         export_csv(cfg.get("export_csv"), new)
         webhook(os.environ.get("INTERNBOT_WEBHOOK") or cfg.get("webhook_url"), new)
@@ -104,6 +110,10 @@ def main():
     ap.add_argument("--submit", action="store_true", help="with --apply: actually submit applications")
     ap.add_argument("--outreach", action="store_true", help="draft personalised cold emails/DMs for new postings (never sends)")
     ap.add_argument("--status", nargs="+", metavar=("COMPANY", "STATUS"), help="update an application: --status Cohere interview [note...]  (replied|interview|rejected|offer)")
+    ap.add_argument("--programs", action="store_true", help="check fellowship/residency pages (programs.yaml) and rebuild the dashboard")
+    ap.add_argument("--researchers", action="store_true", help="find researchers at target companies similar to you (needs OPENALEX_API_KEY)")
+    ap.add_argument("--draft", action="store_true", help="with --researchers: draft an email to each (needs ANTHROPIC_API_KEY)")
+    ap.add_argument("--ui", action="store_true", help="rebuild out/dashboard.html + deadlines.ics and exit")
     ap.add_argument("--applied", action="store_true", help="print the running list of applications and exit")
     ap.add_argument("--contacts", action="store_true", help="print Twitter handles collected and exit")
     ap.add_argument("--harvest", action="store_true", help="read-only crawl of application forms to collect questions into answers.yaml")
@@ -113,6 +123,29 @@ def main():
     ap.add_argument("--interval", type=int, help="minutes between runs (default: config interval_minutes or 30)")
     a = ap.parse_args()
     load_env()
+    if a.programs or a.ui or a.researchers:
+        from . import programs, ui, researchers, llm
+        cfg = yaml.safe_load(open(a.config))
+        db = DB(cfg.get("db_path", "internbot.db"))
+        if a.programs:
+            programs.check_all(db)
+        if a.researchers:
+            prof = yaml.safe_load(open("profile.yaml")) if os.path.exists("profile.yaml") else {}
+            res = llm.resume_text(prof.get("resume", ""))
+            tl = yaml.safe_load(open(cfg.get("targets_file", "targets.yaml")))["companies"]
+            try:
+                found = researchers.find_researchers(tl, prof, res, db=db)
+            except researchers.OpenAlexError as e:
+                return print(f"[researchers] {e}")
+            if a.draft:
+                if not llm.enabled():
+                    print("[researchers] set ANTHROPIC_API_KEY to draft emails")
+                else:
+                    for r in found[:25]:
+                        db.set_draft(r["author_id"], llm.draft_researcher_outreach(r["name"], r["company"], r["papers"], prof, res))
+            print(f"[researchers] {len(found)} researchers saved")
+        print(f"[ui] {ui.build(db)}")
+        return
     if a.status:
         db = DB(yaml.safe_load(open(a.config)).get("db_path", "internbot.db"))
         n = db.set_status(a.status[0], a.status[1] if len(a.status) > 1 else "replied", " ".join(a.status[2:]))

@@ -39,7 +39,7 @@ def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_compani
         return False
     if not _has(text, keywords):
         return False
-    if "intern" not in text and "reu" not in text and "research assistant" not in text:
+    if not re.search(r"intern|\breu\b|research assistant|fellow|residen|scholar", text):
         return False
     if _has(title, exclude):
         return False
@@ -64,3 +64,11 @@ def too_old(p: Posting, max_age_days: int) -> bool:
     except Exception:
         return False
     return datetime.now(timezone.utc) - d > timedelta(days=max_age_days)
+
+
+PROGRAM_RX = re.compile(r"fellow|residen|scholar|\bMATS\b|apprentice", re.I)
+
+
+def is_program(p: Posting) -> bool:
+    """Fellowships / residencies / scholar programs: high-value, apply by hand."""
+    return bool(PROGRAM_RX.search(p.title))
