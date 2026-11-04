@@ -87,8 +87,14 @@ def rank_authors(works, inst_id, terms, top=8):
     return out
 
 
-def find_researchers(targets, profile, resume="", top_per_company=6, db=None, since="2025-01-01"):
+def find_researchers(targets, profile, resume="", top_per_company=6, db=None, since="2025-01-01", batch=None):
+    """With a key: scans every company. Keyless: scans `batch` (default 6) least-recently-scanned companies per call,
+    so the small free daily budget is enough - run daily and it covers everyone over a few days."""
     terms = user_terms(profile, resume)
+    if batch is None:
+        batch = None if os.environ.get("OPENALEX_API_KEY") else 6
+    if db and batch:
+        targets = sorted(targets, key=lambda t: db.get("scanned:" + t["name"], ""))[:batch]
     print(f"[researchers] matching on: {', '.join(terms[:12])}")
     found = []
     for t in targets:
@@ -107,6 +113,9 @@ def find_researchers(targets, profile, resume="", top_per_company=6, db=None, si
             found.append(r)
             if db:
                 db.upsert_researcher(r)
+        if db:
+            from datetime import datetime
+            db.put("scanned:" + t["name"], datetime.now().isoformat())
         if ranked:
             print(f"[researchers] {t['name']}: {len(ranked)} similar researchers")
     return found

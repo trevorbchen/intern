@@ -39,6 +39,8 @@ def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_compani
         return False
     if not _has(text, keywords):
         return False
+    if not re.search(r"research|scientist|fellow|residen|scholar", title):  # skip generic roles (e.g. plain "ML Intern")
+        return False
     if not re.search(r"intern|\breu\b|research assistant|fellow|residen|scholar", text):
         return False
     if _has(title, exclude):

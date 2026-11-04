@@ -5,9 +5,7 @@ from . import llm
 
 
 def draft_all(postings, db=None, client=None, path="out/outreach.md"):
-    if not (llm.enabled() or client):
-        print("[outreach] ANTHROPIC_API_KEY not set - skipping drafts")
-        return
+    use_llm = llm.enabled() or client is not None
     profile = yaml.safe_load(open("profile.yaml")) if os.path.exists("profile.yaml") else {}
     resume = llm.resume_text(profile.get("resume", ""))
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -15,7 +13,8 @@ def draft_all(postings, db=None, client=None, path="out/outreach.md"):
         for p in postings:
             try:
                 to = p.handle or ""  # twitter poster -> DM them; otherwise hiring team
-                text = llm.draft_outreach(p, profile, resume, to, client)
+                text = (llm.draft_outreach(p, profile, resume, to, client) if use_llm
+                        else llm.template_posting(p, profile))
             except Exception as e:
                 print(f"[outreach] draft failed for {p.company}: {type(e).__name__}")
                 continue

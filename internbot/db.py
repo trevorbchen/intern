@@ -17,6 +17,7 @@ class DB:
         self.c.execute("""CREATE TABLE IF NOT EXISTS researchers(
             author_id TEXT PRIMARY KEY, name TEXT, company TEXT, score REAL, papers TEXT, url TEXT,
             draft TEXT DEFAULT '', contacted INTEGER DEFAULT 0, found_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        self.c.execute("CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT)")
         self.c.execute("""CREATE TABLE IF NOT EXISTS contacts(
             handle TEXT, tweet_url TEXT PRIMARY KEY, apply_url TEXT, text TEXT,
             messaged INTEGER DEFAULT 0, first_seen TEXT DEFAULT CURRENT_TIMESTAMP)""")
@@ -92,4 +93,12 @@ class DB:
 
     def set_draft(self, author_id, draft):
         self.c.execute("UPDATE researchers SET draft=? WHERE author_id=?", (draft, author_id))
+        self.c.commit()
+
+    def get(self, k, default=None):
+        r = self.c.execute("SELECT v FROM kv WHERE k=?", (k,)).fetchone()
+        return r[0] if r else default
+
+    def put(self, k, v):
+        self.c.execute("INSERT INTO kv(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (k, str(v)))
         self.c.commit()

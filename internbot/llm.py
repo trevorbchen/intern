@@ -1,7 +1,7 @@
 """Claude answers application questions that the profile `answers` patterns don't cover.
 
-Needs ANTHROPIC_API_KEY in .env. Model defaults to claude-opus-5-5; set ANTHROPIC_MODEL in .env to
-use something cheaper (e.g. claude-sonnet-5-5 or claude-haiku-5-5).
+Needs ANTHROPIC_API_KEY in .env. Model defaults to the cheapest (claude-haiku-5-5); set ANTHROPIC_MODEL in .env
+for something stronger (claude-sonnet-5-5 / claude-opus-5-5). With no key everything falls back to templates.
 The model may ONLY use facts from your profile/resume. If it can't answer truthfully it returns
 NEEDS_HUMAN and the field is left blank (application flagged for you).
 """
@@ -21,6 +21,11 @@ internships at startups. Rules:
   Essays: 3-5 sentences, specific to the company/role, genuine and plain, no hype or clichés."""
 
 _client = None
+
+
+def model() -> str:
+    """Cheapest current Claude by default (~cents/month at this volume). Override with ANTHROPIC_MODEL."""
+    return os.environ.get("ANTHROPIC_MODEL") or "claude-haiku-5-5"
 
 
 def enabled() -> bool:
@@ -54,7 +59,7 @@ def answer(question: str, options, profile: dict, job_text: str, resume: str = "
     if options:
         prompt += "OPTIONS:\n" + "\n".join(f"- {o}" for o in options)
     resp = (client or _get()).messages.create(
-        model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
+        model=model(),
         max_tokens=1000, system=SYSTEM,
         output_config={"effort": "low"},
         messages=[{"role": "user", "content": prompt}])
@@ -84,34 +89,10 @@ def draft_outreach(posting, profile: dict, resume: str = "", recipient: str = ""
               f"{(posting.description or posting.title)[:5000]}\n\nRECIPIENT: {recipient or 'unknown (hiring team)'}\n"
               f"SOURCE: {posting.source}  LINK: {posting.url}")
     resp = (client or _get()).messages.create(
-        model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=700,
+        model=model(), max_tokens=700,
         system=OUTREACH_SYSTEM, output_config={"effort": "low"},
         messages=[{"role": "user", "content": prompt}])
     return next((b.text for b in resp.content if b.type == "text"), "").strip()
-
-
-SCORE_SYSTEM = """You rate how well a research-internship posting fits a candidate who wants a research role at a
-top AI startup. Consider: research (not product/sales/ops) focus, seniority fit for an intern, relevance to the
-candidate's background and interests, location/eligibility, and how strong the team/company is.
-Reply in exactly one line: SCORE: <0-100> | <one short reason>. 80+ = apply now, 60-79 = decent, below 60 = skip."""
-
-
-def score_posting(posting, profile: dict, resume: str = "", client=None):
-    """Returns (score:int, reason:str); (-1, "") on failure."""
-    import re
-    facts = {k: v for k, v in profile.items() if k in ("background", "school", "location", "interests", "graduation")}
-    prompt = (f"CANDIDATE:\n{facts}\n{resume[:3000]}\n\nPOSTING: {posting.title} at {posting.company} "
-              f"({posting.location})\n{(posting.description or '')[:3500]}")
-    try:
-        resp = (client or _get()).messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=200,
-            system=SCORE_SYSTEM, output_config={"effort": "low"},
-            messages=[{"role": "user", "content": prompt}])
-        text = next((b.text for b in resp.content if b.type == "text"), "")
-        m = re.search(r"SCORE:\s*(\d{1,3})\s*\|?\s*(.*)", text)
-        return (min(int(m.group(1)), 100), m.group(2).strip()) if m else (-1, "")
-    except Exception:
-        return -1, ""
 
 
 RESEARCHER_SYSTEM = """You write a short cold email from a student to a researcher at an AI startup, asking about
@@ -130,7 +111,25 @@ def draft_researcher_outreach(name, company, papers, profile, resume="", client=
     prompt = (f"CANDIDATE PROFILE:\n{facts}\n\nRESUME:\n{resume[:4000] or '(none)'}\n\n"
               f"RESEARCHER: {name} at {company}\nTHEIR RECENT PAPERS (most relevant first):\n{plist}")
     resp = (client or _get()).messages.create(
-        model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=600,
+        model=model(), max_tokens=600,
         system=RESEARCHER_SYSTEM, output_config={"effort": "low"},
         messages=[{"role": "user", "content": prompt}])
     return next((b.text for b in resp.content if b.type == "text"), "").strip()
+
+
+# ---- $0 fallbacks (no API key): plain templates using only your own profile facts ----
+def template_researcher(name, company, papers, profile) -> str:
+    paper = papers[0]["title"] if papers else "your recent work"
+    me = (profile.get("background") or "").strip().split(".")[0] or "a student interested in research"
+    return (f"SUBJECT: Question about your paper on {paper[:60]}\n"
+            f"Hi {name.split()[0]},\n\nI read \"{paper}\" and found it really interesting. {me}. "
+            f"I'm looking for a research internship and wanted to ask whether {company} takes interns on this kind of work, "
+            f"or if there's a better person to contact.\n\nThanks for your time,\n{profile.get('first_name', '')}")
+
+
+def template_posting(posting, profile) -> str:
+    me = (profile.get("background") or "").strip().split(".")[0] or "a student interested in research"
+    return (f"SUBJECT: {posting.title} - {profile.get('first_name', '')} {profile.get('last_name', '')}\n"
+            f"Hi,\n\nI'm applying for the {posting.title} role at {posting.company}. {me}. "
+            f"I'd love to chat briefly about the team's research and whether I could contribute.\n\n"
+            f"Thanks,\n{profile.get('first_name', '')}")

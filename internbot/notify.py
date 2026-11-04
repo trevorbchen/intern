@@ -21,3 +21,29 @@ def webhook(url, rows):
     lines = [f"• [{p.source}] {p.title} — {p.company} {p.location}\n  {p.url}" for p in rows[:20]]
     text = f"{len(rows)} new research internships:\n" + "\n".join(lines)
     requests.post(url, json={"text": text, "content": text[:1900]}, timeout=15)
+
+
+def ntfy(rows, topic=None, title="New research internships"):
+    """Free push notifications to your phone via ntfy.sh (install the app, subscribe to your topic)."""
+    topic = topic or os.environ.get("NTFY_TOPIC")
+    if not topic or not rows:
+        return
+    from .filters import is_program
+    body = "\n".join(f"{'* ' if is_program(p) else ''}{p.company}: {p.title}" for p in rows[:15])
+    top = rows[0].url if rows else ""
+    try:
+        requests.post(f"https://ntfy.sh/{topic}", data=body.encode(), timeout=15,
+                      headers={"Title": f"{len(rows)} {title}", "Click": top,
+                               "Priority": "high" if any(is_program(p) for p in rows) else "default"})
+    except Exception as e:
+        print(f"[ntfy] failed: {type(e).__name__}")
+
+
+def alert(message, topic=None):
+    topic = topic or os.environ.get("NTFY_TOPIC")
+    if topic:
+        try:
+            requests.post(f"https://ntfy.sh/{topic}", data=message.encode(), timeout=15, headers={"Title": "internbot"})
+        except Exception:
+            pass
+    print(f"[alert] {message}")

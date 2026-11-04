@@ -28,10 +28,3 @@ def test_outreach_draft(tmp_path, monkeypatch):
     p = Posting("ashby", "Research Intern", "Cohere", "https://x/1", "Toronto", "LLM research")
     outreach.draft_all([p], None, client=fake("SUBJECT: Hi\nbody"), path="out/o.md")
     assert "Cohere" in (tmp_path / "out/o.md").read_text() and "SUBJECT: Hi" in (tmp_path / "out/o.md").read_text()
-
-
-def test_score():
-    from internbot.models import Posting
-    p = Posting("x", "Research Intern", "Cohere", "u")
-    assert llm.score_posting(p, {}, client=fake("SCORE: 85 | strong LLM research match")) == (85, "strong LLM research match")
-    assert llm.score_posting(p, {}, client=fake("garbage")) == (-1, "")

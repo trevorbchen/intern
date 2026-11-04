@@ -72,3 +72,8 @@ def test_run_end_to_end(tmp_path, monkeypatch):
     assert open("out/n.csv").read().count("Research Intern") == 1  # deduped, sales filtered
     cli.run("c.yaml")  # second run: nothing new
     assert open("out/n.csv").read().count("Research Intern") == 1
+
+
+def test_generic_roles_skipped():
+    assert not matches(Posting("x", "Machine Learning Intern", "Co", "u1", "", "LLM research team"), ["research"], [], [], ["LLM"])
+    assert matches(Posting("x", "Research Scientist Intern", "Co", "u2", "", "LLM"), ["research"], [], [], ["LLM"])

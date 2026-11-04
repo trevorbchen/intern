@@ -7,9 +7,6 @@ keywords:        # posting must be an internship/research role matching one of t
   - research scientist intern
   - research engineer intern
   - research assistant
-  - machine learning intern
-  - ML intern
-  - AI intern
   - summer research
   - fellow
   - fellowship
@@ -95,7 +92,6 @@ sources:
 
 interval_minutes: 30   # used by --watch
 max_age_days: 120      # ignore postings older than this
-score_with_llm: false  # optional Claude fit score; off - we apply to everything that matches
 db_path: internbot.db
 export_csv: out/new_internships.csv
 webhook_url: ""
@@ -107,3 +103,14 @@ harvest:
                discord, duolingo, fivetran, sambanovasystems, mercury, assemblyai, observeai, airtable,
                lattice, mixpanel, gusto, verkada, samsara, robinhood, affirm, reddit, instacart, asana]
   lever: [mistral, palantir]
+
+hn_hiring: true        # free: scan the monthly Hacker News "Who is hiring" thread for target companies
+
+# The continuous loop (python -m internbot.cli --watch). Minutes between each task.
+loop:
+  scrape_minutes: 30        # company boards, careers pages, HN, LinkedIn
+  twitter_minutes: 120      # needs X login (see README); skipped if not logged in
+  programs_minutes: 360     # fellowship / residency pages
+  researchers_minutes: 1440 # find similar researchers (rotating batches if no OpenAlex key)
+  outreach: true            # draft emails for new postings (templates if no ANTHROPIC_API_KEY)
+  apply: false              # true = also pre-fill Greenhouse/Lever forms (never submits)

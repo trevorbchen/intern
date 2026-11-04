@@ -2,8 +2,8 @@ import argparse, os, random, time, traceback, yaml
 from .db import DB
 from .filters import matches, target_names, canon, too_old, is_program
 from . import llm
-from .notify import export_csv, webhook
-from .sources import web, linkedin, twitter
+from .notify import export_csv, webhook, ntfy, alert
+from .sources import web, linkedin, twitter, extra
 from . import apply as applier
 
 
@@ -30,26 +30,47 @@ def export_applications(db, path="out/applications.csv"):
         w.writerows(db.contacts())
 
 
-def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_flag=False):
+def health(db, name, raw):
+    """Alert if a source silently returns nothing several runs in a row (site changed / blocked)."""
+    key = f"zero:{name}"
+    n = int(db.get(key, 0)) + 1 if raw == 0 else 0
+    db.put(key, n)
+    if n == 3:
+        alert(f"source '{name}' returned nothing 3 runs in a row - it may be broken or blocked")
+
+
+def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_flag=False, only=None):
     cfg = yaml.safe_load(open(cfg_path))
     db = DB(cfg.get("db_path", "internbot.db"))
     src = cfg.get("sources", {})
     targets = None
-    if cfg.get("target_only") and os.path.exists(cfg.get("targets_file", "targets.yaml")):
-        tl = yaml.safe_load(open(cfg.get("targets_file", "targets.yaml")))["companies"]
-        targets = target_names(tl)
-        streams = [web.fetch_targets(tl)]
-    else:
-        streams = [web.fetch(src)]
-    if src.get("linkedin", {}).get("enabled"):
-        streams.append(linkedin.fetch(src["linkedin"]))
-    if src.get("twitter", {}).get("enabled"):
-        streams.append(twitter.fetch(src["twitter"]))
+    extra_pages = []
+    streams = []  # (name, generator)
+    want = lambda n: only is None or n in only
+    if want("web"):
+        if cfg.get("target_only") and os.path.exists(cfg.get("targets_file", "targets.yaml")):
+            td = yaml.safe_load(open(cfg.get("targets_file", "targets.yaml")))
+            targets = target_names(td["companies"])
+            streams.append(("web", web.fetch_targets(td["companies"])))
+            if td.get("careers_pages"):
+                streams.append(("pages", extra.careers_pages(td["careers_pages"])))
+        else:
+            streams.append(("web", web.fetch(src)))
+        if cfg.get("hn_hiring", True):
+            streams.append(("hn", extra.hn_hiring()))
+    if cfg.get("target_only") and targets is None and os.path.exists(cfg.get("targets_file", "targets.yaml")):
+        targets = target_names(yaml.safe_load(open(cfg.get("targets_file", "targets.yaml")))["companies"])
+    if want("linkedin") and src.get("linkedin", {}).get("enabled"):
+        streams.append(("linkedin", linkedin.fetch(src["linkedin"])))
+    if want("twitter") and src.get("twitter", {}).get("enabled"):
+        streams.append(("twitter", twitter.fetch(src["twitter"])))
     new, seen_keys = [], set()
     max_age = cfg.get("max_age_days", 120)
-    for stream in streams:
+    for sname, stream in streams:
+        raw = 0
         try:
             for p in stream:
+                raw += 1
                 if not matches(p, cfg["keywords"], cfg.get("exclude", []), cfg.get("locations", []),
                                cfg.get("topics", []), cfg.get("exclude_companies", []), targets):
                     continue
@@ -62,19 +83,10 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
                 if dry or db.add_if_new(p):
                     new.append(p)
         except Exception as e:  # one broken source must not kill the run
-            print(f"[source error] {type(e).__name__}: {e}")
-    if new and llm.enabled() and cfg.get("score_with_llm", True) and os.path.exists("profile.yaml"):
-        prof = yaml.safe_load(open("profile.yaml"))
-        res = llm.resume_text(prof.get("resume", ""))
-        for p in new:
-            p.score, p.reason = llm.score_posting(p, prof, res)
-        floor = cfg.get("min_score", 60)
-        skipped = [p for p in new if 0 <= p.score < floor]
-        new = sorted([p for p in new if p.score < 0 or p.score >= floor], key=lambda p: -p.score)
-        if skipped:
-            print(f"[score] {len(skipped)} postings below {floor} skipped")
+            print(f"[source error] {sname}: {type(e).__name__}: {e}")
+        health(db, sname, raw)
     for p in new:
-        tag = (f" ({p.score}: {p.reason})" if p.score >= 0 else "") + (" ** PROGRAM - apply by hand **" if is_program(p) else "")
+        tag = " ** PROGRAM - apply by hand **" if is_program(p) else ""
         print(f"[{p.source}] {p.title} | {p.company} | {p.location}{tag}\n    {p.url}")
     print(f"\n{len(new)} new matching postings")
     for p in new:
@@ -93,13 +105,15 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
         export_applications(db)
         try:
             from . import programs, ui
-            programs.check_all(db)
+            if only is None:
+                programs.check_all(db)
             print(f"[ui] dashboard: {ui.build(db)}")
         except Exception as e:
             print(f"[ui] skipped: {type(e).__name__}: {e}")
     if not dry:
         export_csv(cfg.get("export_csv"), new)
         webhook(os.environ.get("INTERNBOT_WEBHOOK") or cfg.get("webhook_url"), new)
+        ntfy(new)
 
 
 def main():
@@ -119,8 +133,9 @@ def main():
     ap.add_argument("--harvest", action="store_true", help="read-only crawl of application forms to collect questions into answers.yaml")
     ap.add_argument("--per-board", type=int, default=4, help="forms to read per company when harvesting")
     ap.add_argument("--answer", action="store_true", help="interactively answer the collected questions (saved permanently)")
-    ap.add_argument("--watch", action="store_true", help="run forever, re-scraping on an interval")
-    ap.add_argument("--interval", type=int, help="minutes between runs (default: config interval_minutes or 30)")
+    ap.add_argument("--watch", action="store_true", help="the full continuous loop: scrape, programs, researchers, outreach, dashboard, alerts")
+    ap.add_argument("--once", action="store_true", help="with --watch: run every due task once, then exit")
+    ap.add_argument("--force", action="store_true", help="with --watch: run every task now regardless of schedule")
     a = ap.parse_args()
     load_env()
     if a.programs or a.ui or a.researchers:
@@ -138,11 +153,9 @@ def main():
             except researchers.OpenAlexError as e:
                 return print(f"[researchers] {e}")
             if a.draft:
-                if not llm.enabled():
-                    print("[researchers] set ANTHROPIC_API_KEY to draft emails")
-                else:
-                    for r in found[:25]:
-                        db.set_draft(r["author_id"], llm.draft_researcher_outreach(r["name"], r["company"], r["papers"], prof, res))
+                for r in found[:25]:
+                    db.set_draft(r["author_id"], llm.draft_researcher_outreach(r["name"], r["company"], r["papers"], prof, res)
+                                 if llm.enabled() else llm.template_researcher(r["name"], r["company"], r["papers"], prof))
             print(f"[researchers] {len(found)} researchers saved")
         print(f"[ui] {ui.build(db)}")
         return
@@ -173,15 +186,8 @@ def main():
         return
     if not a.watch:
         return run(a.config, a.dry_run, a.apply, a.submit, a.outreach)
-    mins = a.interval or yaml.safe_load(open(a.config)).get("interval_minutes", 30)
-    while True:
-        try:
-            run(a.config, a.dry_run, a.apply, a.submit, a.outreach)
-        except Exception:
-            traceback.print_exc()  # never die; try again next cycle
-        wait = mins * 60 * random.uniform(0.85, 1.15)  # jitter
-        print(f"-- sleeping {wait/60:.1f} min --", flush=True)
-        time.sleep(wait)
+    from . import loop
+    loop.watch(a.config, once=a.once, force=a.force, dry=a.dry_run)
 
 
 if __name__ == "__main__":

@@ -224,6 +224,12 @@ companies:
 - name: Rogo
   ats: ashby
   token: rogo
+- name: Anduril
+  ats: greenhouse
+  token: andurilindustries
+- name: Surge AI
+  ats: ashby
+  token: surge-ai
 no_public_board_found:
 - Mistral AI
 - Safe Superintelligence
@@ -234,16 +240,35 @@ no_public_board_found:
 - Luma AI
 - General Intuition
 - Applied Intuition
-- Anduril
 - Groq
 - Hippocratic AI
 - EvolutionaryScale
 - Contextual AI
 - Hebbia
-- Surge AI
 - Adept
 - Covariant
 - Canva
 - Revolut
 - Cyera
 - Clay
+careers_pages:
+- name: Mistral AI
+  url: https://mistral.ai/careers
+- name: Sakana AI
+  url: https://sakana.ai/careers/
+- name: Weights & Biases
+  url: https://wandb.ai/site/careers
+- name: Applied Intuition
+  url: https://www.appliedintuition.com/careers
+- name: Contextual AI
+  url: https://contextual.ai/careers
+- name: Hebbia
+  url: https://www.hebbia.com/careers
+- name: Cyera
+  url: https://www.cyera.com/careers
+- name: Safe Superintelligence
+  url: https://ssi.inc/
+- name: Hugging Face
+  url: https://huggingface.co/jobs
+- name: Groq
+  url: https://groq.com/careers
