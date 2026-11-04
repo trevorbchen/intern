@@ -133,4 +133,5 @@ def test_template_drafts_work_without_llm():
     d = llm.template_researcher("Ada Lovelace", "Co", [{"title": "Cool RL paper"}], {"first_name": "Sam", "background": "I'm a CS student. More."})
     assert d.startswith("SUBJECT:") and "Hi Ada" in d and "Cool RL paper" in d and "Sam" in d
     p = Posting("x", "Research Intern", "Co", "u")
-    assert "Research Intern" in llm.template_posting(p, {"first_name": "Sam"})
+    out = llm.template_posting(p, {"first_name": "Sam", "last_name": "Lee", "background": "i study CS. More text"})
+    assert "Research Intern" in out and "I study CS." in out and "Sam Lee" in out and ". a " not in out

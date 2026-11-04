@@ -6,6 +6,9 @@ from . import llm
 
 def draft_all(postings, db=None, client=None, path="out/outreach.md"):
     use_llm = llm.enabled() or client is not None
+    if not os.path.exists("profile.yaml") and client is None:
+        print("[outreach] no profile.yaml yet - skipping drafts (copy profile.example.yaml and fill it in)")
+        return
     profile = yaml.safe_load(open("profile.yaml")) if os.path.exists("profile.yaml") else {}
     resume = llm.resume_text(profile.get("resume", ""))
     os.makedirs(os.path.dirname(path), exist_ok=True)

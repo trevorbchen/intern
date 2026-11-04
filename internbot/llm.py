@@ -118,18 +118,25 @@ def draft_researcher_outreach(name, company, papers, profile, resume="", client=
 
 
 # ---- $0 fallbacks (no API key): plain templates using only your own profile facts ----
+def _me(profile) -> str:
+    first = (profile.get("background") or "").strip().split(".")[0].strip()
+    return (first[0].upper() + first[1:] + ".") if first else ""
+
+
+def _sig(profile) -> str:
+    return (profile.get("first_name", "") + " " + profile.get("last_name", "")).strip()
+
+
 def template_researcher(name, company, papers, profile) -> str:
     paper = papers[0]["title"] if papers else "your recent work"
-    me = (profile.get("background") or "").strip().split(".")[0] or "a student interested in research"
     return (f"SUBJECT: Question about your paper on {paper[:60]}\n"
-            f"Hi {name.split()[0]},\n\nI read \"{paper}\" and found it really interesting. {me}. "
+            f"Hi {name.split()[0]},\n\nI read \"{paper}\" and found it really interesting. {_me(profile)} "
             f"I'm looking for a research internship and wanted to ask whether {company} takes interns on this kind of work, "
-            f"or if there's a better person to contact.\n\nThanks for your time,\n{profile.get('first_name', '')}")
+            f"or if there's a better person to contact.\n\nThanks for your time,\n{_sig(profile)}").replace("  ", " ")
 
 
 def template_posting(posting, profile) -> str:
-    me = (profile.get("background") or "").strip().split(".")[0] or "a student interested in research"
-    return (f"SUBJECT: {posting.title} - {profile.get('first_name', '')} {profile.get('last_name', '')}\n"
-            f"Hi,\n\nI'm applying for the {posting.title} role at {posting.company}. {me}. "
+    return (f"SUBJECT: {posting.title} - {_sig(profile)}\n"
+            f"Hi,\n\nI'm applying for the {posting.title} role at {posting.company}. {_me(profile)} "
             f"I'd love to chat briefly about the team's research and whether I could contribute.\n\n"
-            f"Thanks,\n{profile.get('first_name', '')}")
+            f"Thanks,\n{_sig(profile)}").replace("  ", " ")
