@@ -13,3 +13,21 @@ cover_note: >
   I'm a student interested in research and would love to contribute to your team.
 apply:
   max_per_run: 5       # safety cap on applications per run
+
+# Question label (regex, case-insensitive) -> your answer. Matching dropdowns / text boxes get filled.
+# Anything NOT matched stays unanswered and the application is flagged needs_manual (never guessed).
+answers:
+  "authorized to work|legally authorized|work authorization": "Yes"
+  "sponsorship|visa": "No"
+  "^country": "United States"
+  "from where do you intend|where do you plan to work|work location": "United States"
+  "location \\(city\\)|candidate-location|^city": "Boston, MA"
+  "worked for .* before|previously (worked|employed)|former employee": "No"
+  "how did you hear|where did you (hear|find)": "LinkedIn"
+  "bound by any agreements|non-?compete": "No"
+  "open to (working )?in.?person|willing to relocate": "Yes"
+  "(graduation|expected graduation)": "May 2028"
+  "(current|most recent) school|university": "Example University"
+  "(why|what).*(interested|excites|join|work (at|for|with))": "I'm excited by your research and want to contribute while learning from the team."  # generic - rewrite in your own words, or leave out so it is flagged for you
+  "current or most recent job title|job title": "Student"
+  "current or most recent employer|current employer|company": "Example University"

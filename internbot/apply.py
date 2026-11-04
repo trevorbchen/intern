@@ -39,6 +39,63 @@ def _label(page, el) -> str:
         return "?"
 
 
+def _full_label(el) -> str:
+    try:
+        return el.evaluate("""e => {
+            const ids = (e.getAttribute('aria-labelledby')||'').split(' ').filter(Boolean);
+            let t = ids.map(i => (document.getElementById(i)||{}).innerText||'').join(' ');
+            if (!t.trim() && e.labels && e.labels[0]) t = e.labels[0].innerText;
+            return (t || e.getAttribute('aria-label') || e.name || e.id || '').trim();}""")
+    except Exception:
+        return ""
+
+
+def fill_answers(page, answers: dict):
+    """Answer questions whose label matches a regex key in profile `answers` (text, dropdowns, comboboxes)."""
+    if not answers:
+        return
+    pats = [(re.compile(k, re.I), str(v)) for k, v in answers.items()]
+    for el in page.query_selector_all("form input:not([type=file]):not([type=hidden]):not([type=checkbox])"
+                                      ":not([type=radio]), form textarea, form select"):
+        try:
+            if not el.is_visible():
+                continue
+            label = _full_label(el)
+            ans = next((v for rx, v in pats if rx.search(label)), None)
+            if ans is None:
+                continue
+            tag = el.evaluate("e => e.tagName.toLowerCase()")
+            if tag == "select":
+                try:
+                    el.select_option(label=ans)
+                except Exception:
+                    el.select_option(index=next((i for i, o in enumerate(el.evaluate(
+                        "e => [...e.options].map(o => o.text)")) if ans.lower() in o.lower()), 0))
+            elif el.get_attribute("role") == "combobox":
+                el.click()
+                el.fill("")
+                el.type(ans[:20], delay=40)
+                page.wait_for_timeout(1000)
+                lb = el.get_attribute("aria-controls") or el.get_attribute("aria-owns")
+                scope = f"[id='{lb}'] " if lb else ""
+                opts = page.query_selector_all(f"{scope}[role=option]")
+                if not lb:  # no listbox link: only trust a short list
+                    opts = opts if len(opts) <= 30 else []
+                texts = [(o, o.inner_text().strip().lower()) for o in opts]
+                want = ans.lower()
+                opt = (next((o for o, t in texts if t == want), None)
+                       or next((o for o, t in texts if t.startswith(want)), None)
+                       or next((o for o, t in texts if want in t), None))
+                if opt:
+                    opt.click()
+                else:
+                    el.fill("")  # nothing matched: leave empty so it is flagged, not guessed
+            elif not (el.input_value() or "").strip():
+                el.fill(ans)
+        except Exception:
+            continue
+
+
 def apply_to(page, url: str, profile: dict, submit: bool, shot_dir="apply_shots"):
     """Returns (status, note). status: submitted | filled | needs_manual | failed"""
     try:
@@ -64,6 +121,7 @@ def apply_to(page, url: str, profile: dict, submit: bool, shot_dir="apply_shots"
                 if el and el.is_visible():
                     el.fill(str(data[key]))
                     break
+        fill_answers(page, profile.get("answers", {}))
         resume = os.path.expanduser(profile.get("resume", ""))
         fi = page.query_selector("input[type=file][name='resume'], input[type=file]#resume, input[type=file]")
         if fi and os.path.exists(resume):
@@ -81,8 +139,15 @@ def apply_to(page, url: str, profile: dict, submit: bool, shot_dir="apply_shots"
                 if t == "file":
                     if not el.evaluate("e => e.files && e.files.length"):
                         missing.append("resume")
+                elif el.get_attribute("role") == "combobox":
+                    has = el.evaluate("""e => { const c = e.closest('[class*=select], [class*=control]') ||
+                        e.parentElement.parentElement; return !!c.querySelector('[class*=single-value]') ||
+                        (e.parentElement.parentElement.innerText||'').trim().length > 0 &&
+                        !/^select/i.test((e.parentElement.parentElement.innerText||'').trim()); }""")
+                    if not has:
+                        missing.append(_full_label(el)[:60] or "dropdown")
                 elif not (el.input_value() or "").strip():
-                    missing.append(_label(page, el))
+                    missing.append(_full_label(el)[:60] or _label(page, el))
             except Exception:
                 continue
         captcha = page.query_selector("iframe[src*='hcaptcha'], iframe[src*='recaptcha'], .h-captcha")
