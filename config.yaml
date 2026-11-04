@@ -89,6 +89,9 @@ sources:
     scrolls: 3
 
 interval_minutes: 30   # used by --watch
+max_age_days: 120      # ignore postings older than this
+score_with_llm: true   # Claude rates fit 0-100 (needs ANTHROPIC_API_KEY + profile.yaml)
+min_score: 60          # below this: skipped (not applied / notified)
 db_path: internbot.db
 export_csv: out/new_internships.csv
 webhook_url: ""

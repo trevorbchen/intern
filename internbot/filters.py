@@ -46,3 +46,21 @@ def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_compani
     if locations and p.location and not any(l.lower() in p.location.lower() for l in locations):
         return False
     return True
+
+
+def too_old(p: Posting, max_age_days: int) -> bool:
+    """True if the posting has a parseable date older than max_age_days (undated = keep)."""
+    from datetime import datetime, timezone, timedelta
+    raw = (p.posted or "").strip()
+    if not raw or not max_age_days:
+        return False
+    try:
+        if raw.isdigit():  # lever: epoch millis
+            d = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
+        else:
+            d = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if d.tzinfo is None:
+                d = d.replace(tzinfo=timezone.utc)
+    except Exception:
+        return False
+    return datetime.now(timezone.utc) - d > timedelta(days=max_age_days)

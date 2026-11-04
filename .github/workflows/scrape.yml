@@ -1,0 +1,25 @@
+name: internbot
+on:
+  schedule: [{cron: "17 */6 * * *"}]   # every 6 hours
+  workflow_dispatch: {}
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - name: Restore seen-postings DB
+        uses: actions/cache@v4
+        with:
+          path: internbot.db
+          key: internbot-db-${{ github.run_id }}
+          restore-keys: internbot-db-
+      # Web boards + LinkedIn only (X needs a logged-in browser: run that part on your own machine).
+      - run: python -m internbot.cli
+        env:
+          INTERNBOT_WEBHOOK: ${{ secrets.INTERNBOT_WEBHOOK }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with: {name: new-internships, path: out/, if-no-files-found: ignore}

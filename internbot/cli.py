@@ -1,6 +1,7 @@
 import argparse, os, random, time, traceback, yaml
 from .db import DB
-from .filters import matches, target_names, canon
+from .filters import matches, target_names, canon, too_old
+from . import llm
 from .notify import export_csv, webhook
 from .sources import web, linkedin, twitter
 from . import apply as applier
@@ -59,8 +60,20 @@ def run(cfg_path="config.yaml", dry=False, apply=False, submit=False, outreach_f
         except Exception as e:  # one broken source must not kill the run
             print(f"[source error] {type(e).__name__}: {e}")
     for p in new:
-        print(f"[{p.source}] {p.title} | {p.company} | {p.location}\n    {p.url}")
+        tag = f" ({p.score}: {p.reason})" if p.score >= 0 else ""
+        print(f"[{p.source}] {p.title} | {p.company} | {p.location}{tag}\n    {p.url}")
     print(f"\n{len(new)} new matching postings")
+    new = [p for p in new if not too_old(p, cfg.get("max_age_days", 120))]
+    if new and llm.enabled() and cfg.get("score_with_llm", True) and os.path.exists("profile.yaml"):
+        prof = yaml.safe_load(open("profile.yaml"))
+        res = llm.resume_text(prof.get("resume", ""))
+        for p in new:
+            p.score, p.reason = llm.score_posting(p, prof, res)
+        floor = cfg.get("min_score", 60)
+        skipped = [p for p in new if 0 <= p.score < floor]
+        new = sorted([p for p in new if p.score < 0 or p.score >= floor], key=lambda p: -p.score)
+        if skipped:
+            print(f"[score] {len(skipped)} postings below {floor} skipped")
     for p in new:
         if not dry:
             db.add_contact(p)
@@ -87,6 +100,7 @@ def main():
     ap.add_argument("--apply", action="store_true", help="auto-fill Greenhouse/Lever forms for new postings (no submit)")
     ap.add_argument("--submit", action="store_true", help="with --apply: actually submit applications")
     ap.add_argument("--outreach", action="store_true", help="draft personalised cold emails/DMs for new postings (never sends)")
+    ap.add_argument("--status", nargs="+", metavar=("COMPANY", "STATUS"), help="update an application: --status Cohere interview [note...]  (replied|interview|rejected|offer)")
     ap.add_argument("--applied", action="store_true", help="print the running list of applications and exit")
     ap.add_argument("--contacts", action="store_true", help="print Twitter handles collected and exit")
     ap.add_argument("--harvest", action="store_true", help="read-only crawl of application forms to collect questions into answers.yaml")
@@ -96,6 +110,11 @@ def main():
     ap.add_argument("--interval", type=int, help="minutes between runs (default: config interval_minutes or 30)")
     a = ap.parse_args()
     load_env()
+    if a.status:
+        db = DB(yaml.safe_load(open(a.config)).get("db_path", "internbot.db"))
+        n = db.set_status(a.status[0], a.status[1] if len(a.status) > 1 else "replied", " ".join(a.status[2:]))
+        export_applications(db)
+        return print(f"updated {n} application(s)")
     if a.harvest:
         from . import harvest as H
         full = yaml.safe_load(open(a.config))

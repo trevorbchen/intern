@@ -36,3 +36,18 @@ def test_target_filter():
     names = target_names([{"name": "Scale AI"}, {"name": "Cursor (Anysphere)"}, {"name": "Thinking Machines Lab"}])
     assert is_target("Scale", names) and is_target("Anysphere", names) and is_target("Thinking Machines", names)
     assert not is_target("Random Startup Inc", names)
+
+
+def test_too_old():
+    from internbot.filters import too_old
+    assert too_old(P("a") if False else Posting("x", "a", "c", "u", posted="2020-01-01"), 120)
+    assert not too_old(Posting("x", "a", "c", "u", posted=""), 120)
+    assert not too_old(Posting("x", "a", "c", "u", posted="2999-01-01T00:00:00Z"), 120)
+
+
+def test_status():
+    db = DB(":memory:")
+    p = P("a")
+    db.record_application(p, "submitted")
+    assert db.set_status("co", "interview") == 1
+    assert db.applications()[0][1] == "interview"

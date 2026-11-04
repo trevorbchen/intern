@@ -48,3 +48,9 @@ class DB:
     def contacts(self):
         return self.c.execute("SELECT first_seen,handle,apply_url,tweet_url,messaged FROM contacts "
                               "ORDER BY first_seen DESC").fetchall()
+
+    def set_status(self, company_substr: str, status: str, note: str = "") -> int:
+        cur = self.c.execute("UPDATE applications SET status=?, note=?, applied_at=applied_at WHERE lower(company) LIKE ?",
+                             (status, note, f"%{company_substr.lower()}%"))
+        self.c.commit()
+        return cur.rowcount

@@ -35,3 +35,12 @@ python -m internbot.cli --contacts          # Twitter handles + apply links foun
 ```
 Everything is also written to `out/applications.csv` and `out/contacts.csv`. Anything that can't be auto-filled
 (custom questions, dropdowns, captchas, LinkedIn/other sites) is logged as `needs_manual` with the link.
+
+## Quality controls
+- `target_only` (config.yaml): only companies in `targets.yaml` (curated top-tier AI startups; refresh with `python tools/probe_targets.py`).
+- Fit scoring: with `ANTHROPIC_API_KEY` + `profile.yaml`, Claude rates each new posting 0-100; below `min_score` is skipped, results are sorted best-first.
+- `max_age_days` drops stale postings. LinkedIn duplicates (one per location) are collapsed.
+- Outreach: `--outreach` drafts a cold email/DM per new posting into `out/outreach.md` (never sends).
+- Track replies: `python -m internbot.cli --status Cohere interview` (replied | interview | rejected | offer), then `--applied`.
+- Question bank: `--harvest` collects real application questions into `answers.yaml`; `--answer` fills them in interactively.
+- `.github/workflows/scrape.yml` runs web + LinkedIn every 6 hours (secrets: `INTERNBOT_WEBHOOK`, `ANTHROPIC_API_KEY`); X crawling needs your own machine.

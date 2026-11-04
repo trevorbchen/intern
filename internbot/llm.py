@@ -88,3 +88,27 @@ def draft_outreach(posting, profile: dict, resume: str = "", recipient: str = ""
         system=OUTREACH_SYSTEM, output_config={"effort": "low"},
         messages=[{"role": "user", "content": prompt}])
     return next((b.text for b in resp.content if b.type == "text"), "").strip()
+
+
+SCORE_SYSTEM = """You rate how well a research-internship posting fits a candidate who wants a research role at a
+top AI startup. Consider: research (not product/sales/ops) focus, seniority fit for an intern, relevance to the
+candidate's background and interests, location/eligibility, and how strong the team/company is.
+Reply in exactly one line: SCORE: <0-100> | <one short reason>. 80+ = apply now, 60-79 = decent, below 60 = skip."""
+
+
+def score_posting(posting, profile: dict, resume: str = "", client=None):
+    """Returns (score:int, reason:str); (-1, "") on failure."""
+    import re
+    facts = {k: v for k, v in profile.items() if k in ("background", "school", "location", "interests", "graduation")}
+    prompt = (f"CANDIDATE:\n{facts}\n{resume[:3000]}\n\nPOSTING: {posting.title} at {posting.company} "
+              f"({posting.location})\n{(posting.description or '')[:3500]}")
+    try:
+        resp = (client or _get()).messages.create(
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"), max_tokens=200,
+            system=SCORE_SYSTEM, output_config={"effort": "low"},
+            messages=[{"role": "user", "content": prompt}])
+        text = next((b.text for b in resp.content if b.type == "text"), "")
+        m = re.search(r"SCORE:\s*(\d{1,3})\s*\|?\s*(.*)", text)
+        return (min(int(m.group(1)), 100), m.group(2).strip()) if m else (-1, "")
+    except Exception:
+        return -1, ""
