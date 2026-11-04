@@ -6,7 +6,8 @@ filters by keywords, de-duplicates in SQLite, and reports only *new* postings (s
 ```bash
 pip install -r requirements.txt
 python -m playwright install chromium  # once
-export X_AUTH_TOKEN=... X_CT0=...      # cookies from your own logged-in x.com session
+export X_USERNAME=... X_PASSWORD=...   # bot logs in once, saves .x_session.json (gitignored)
+# or, more reliable: export X_AUTH_TOKEN=... X_CT0=...  (cookies from a logged-in browser)
 python -m internbot.cli --dry-run      # try it
 python -m internbot.cli                # single run
 python -m internbot.cli --watch        # constant: re-scrapes every interval_minutes (default 30)

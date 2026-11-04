@@ -22,6 +22,30 @@ def _cookies():
     return out
 
 
+STATE = os.environ.get("X_STATE_FILE", ".x_session.json")
+
+
+def _login(page):
+    """Log in with X_USERNAME / X_PASSWORD (optionally X_VERIFY = email/phone X may ask for)."""
+    user, pw_ = os.environ.get("X_USERNAME"), os.environ.get("X_PASSWORD")
+    if not (user and pw_):
+        return False
+    page.goto("https://x.com/i/flow/login", wait_until="domcontentloaded", timeout=30000)
+    page.fill("input[autocomplete='username']", user)
+    page.keyboard.press("Enter")
+    page.wait_for_selector("input[name='password'], input[data-testid='ocfEnterTextTextInput']", timeout=15000)
+    extra = page.query_selector("input[data-testid='ocfEnterTextTextInput']")
+    if extra:  # "unusual activity" check asks for email/phone/username again
+        extra.fill(os.environ.get("X_VERIFY", user))
+        page.keyboard.press("Enter")
+        page.wait_for_selector("input[name='password']", timeout=15000)
+    page.fill("input[name='password']", pw_)
+    page.keyboard.press("Enter")
+    page.wait_for_selector("[data-testid='SideNav_AccountSwitcher_Button'], [data-testid='primaryColumn']",
+                           timeout=20000)
+    return True
+
+
 def fetch(cfg):
     try:
         from playwright.sync_api import sync_playwright
@@ -29,7 +53,7 @@ def fetch(cfg):
         print("[twitter] playwright not installed (pip install playwright)")
         return
     cookies = _cookies()
-    if not cookies:
+    if not cookies and not (os.environ.get("X_USERNAME") or os.path.exists(STATE)):
         print("[twitter] no X_AUTH_TOKEN/X_CT0 set; logged-out X usually blocks search")
     with sync_playwright() as pw:
         exe = os.environ.get("CHROMIUM_PATH")
@@ -40,6 +64,19 @@ def fetch(cfg):
         if cookies:
             ctx.add_cookies(cookies)
         page = ctx.new_page()
+        if not cookies:
+            if os.path.exists(STATE):  # reuse saved login
+                ctx.close()
+                ctx = browser.new_context(storage_state=STATE, viewport={"width": 1280, "height": 1800})
+                page = ctx.new_page()
+            else:
+                try:
+                    if _login(page):
+                        ctx.storage_state(path=STATE)
+                        print("[twitter] logged in, session saved")
+                except Exception as e:
+                    print(f"[twitter] login failed ({type(e).__name__}); X may want a captcha/2FA - "
+                          "log in manually and use X_AUTH_TOKEN/X_CT0 instead")
         for q in cfg.get("queries", []):
             try:
                 page.goto(SEARCH.format(q=quote(q)), wait_until="domcontentloaded", timeout=30000)
