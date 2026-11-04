@@ -1,5 +1,7 @@
 import re
 
+_DOMAIN = re.compile(r"research|scientist|machine learning|\bML\b|\bAI\b|deep learning|\bLLMs?\b|\bNLP\b|"
+                     r"vision|robotic|alignment|reinforcement|applied science|fellow|residen|scholar", re.I)
 _NOISE = {"inc", "ai", "labs", "lab", "technologies", "technology", "corp", "co", "the", "systems"}
 
 
@@ -39,7 +41,7 @@ def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_compani
         return False
     if not _has(text, keywords):
         return False
-    if not re.search(r"research|scientist|fellow|residen|scholar", title):  # skip generic roles (e.g. plain "ML Intern")
+    if not _DOMAIN.search(title):  # title must be AI/research-flavoured (ML Intern, AI Intern, Research Intern...)
         return False
     if not re.search(r"\bintern(ship)?s?\b|\breu\b|research assistant|student researcher|fellow|residen|scholar|apprentice", title, re.I):
         return False  # must be an intern/fellow/residency-type TITLE (not just mention "internal" in the description)

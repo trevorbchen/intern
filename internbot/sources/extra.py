@@ -19,7 +19,7 @@ def careers_pages(pages):
         seen = set()
         for a in soup.find_all("a", href=True):
             text = a.get_text(" ", strip=True)
-            if 8 <= len(text) <= 140 and KW.search(text):
+            if 8 <= len(text) <= 140 and len(text.split()) >= 2 and KW.search(text):  # skip one-word nav links like "Research"
                 url = urljoin(pg["url"], a["href"])
                 if url not in seen:
                     seen.add(url)

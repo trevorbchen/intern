@@ -236,6 +236,8 @@ def run_applications(postings, profile, db, submit=False, limit=5):
                 todo.append(tp)
         else:
             db.record_application(p, "needs_manual", "no Greenhouse/Lever form; apply by hand")
+    if not todo:
+        return
     exe = os.environ.get("CHROMIUM_PATH")
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=["--no-sandbox"], **({"executable_path": exe} if exe else {}))

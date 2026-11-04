@@ -100,7 +100,10 @@ def find_researchers(targets, profile, resume="", top_per_company=6, db=None, si
         return []
     print(f"[researchers] matching on: {', '.join(terms[:12])}")
     found = []
+    from datetime import datetime
     for t in targets:
+        if db:  # mark as scanned up front so companies OpenAlex doesn't know can't starve the rotation
+            db.put("scanned:" + t["name"], datetime.now().isoformat())
         try:
             inst = find_institution(t["name"].split("(")[0].strip())
             if not inst:
@@ -116,9 +119,6 @@ def find_researchers(targets, profile, resume="", top_per_company=6, db=None, si
             found.append(r)
             if db:
                 db.upsert_researcher(r)
-        if db:
-            from datetime import datetime
-            db.put("scanned:" + t["name"], datetime.now().isoformat())
         if ranked:
             print(f"[researchers] {t['name']}: {len(ranked)} similar researchers")
     return found

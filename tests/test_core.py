@@ -74,8 +74,10 @@ def test_run_end_to_end(tmp_path, monkeypatch):
     assert open("out/n.csv").read().count("Research Intern") == 1
 
 
-def test_generic_roles_skipped():
-    assert not matches(Posting("x", "Machine Learning Intern", "Co", "u1", "", "LLM research team"), ["research"], [], [], ["LLM"])
+def test_ml_intern_allowed_generic_swe_skipped():
+    assert matches(Posting("x", "Machine Learning Intern", "Co", "u1", "", "LLM research team"), ["machine learning intern"], [], [], ["LLM"])
+    assert matches(Posting("x", "AI Intern", "Co", "u7", "", "LLM"), ["ai intern"], [], [], ["LLM"])
+    assert not matches(Posting("x", "Software Engineer Intern", "Co", "u8", "", "we build LLM tools"), ["intern"], [], [], ["LLM"])
     assert matches(Posting("x", "Research Scientist Intern", "Co", "u2", "", "LLM"), ["research"], [], [], ["LLM"])
 
 
