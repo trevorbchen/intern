@@ -41,8 +41,8 @@ def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_compani
         return False
     if not re.search(r"research|scientist|fellow|residen|scholar", title):  # skip generic roles (e.g. plain "ML Intern")
         return False
-    if not re.search(r"intern|\breu\b|research assistant|fellow|residen|scholar", text):
-        return False
+    if not re.search(r"\bintern(ship)?s?\b|\breu\b|research assistant|student researcher|fellow|residen|scholar|apprentice", title, re.I):
+        return False  # must be an intern/fellow/residency-type TITLE (not just mention "internal" in the description)
     if _has(title, exclude):
         return False
     if locations and p.location and not any(l.lower() in p.location.lower() for l in locations):

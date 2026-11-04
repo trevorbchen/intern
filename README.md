@@ -52,3 +52,21 @@ Everything is also written to `out/applications.csv` and `out/contacts.csv`. Any
   (OpenAlex, needs `OPENALEX_API_KEY`), and with `--draft` writes an email per researcher citing a specific paper. Nothing is sent.
 - `python -m internbot.cli --ui` rebuilds `out/dashboard.html` (open it in a browser) and `out/deadlines.ics` (import into your calendar).
   Every normal run rebuilds both.
+
+## The loop (everything, continuously) and what it costs
+`python -m internbot.cli --watch` runs forever, each task on its own schedule (config.yaml -> `loop:`):
+company boards (Greenhouse/Lever/Ashby) + careers pages + Hacker News + LinkedIn every 30 min; X every 2 h; fellowship pages
+every 6 h; similar-researcher search daily; outreach drafts for every new posting; dashboard rebuilt each pass; alerts to your phone.
+`--watch --once --force` runs every task one time and exits (handy for testing / cron).
+
+| Piece | Cost |
+|---|---|
+| Job boards, careers pages, HN, fellowship pages, dashboard, calendar | free, no keys |
+| LinkedIn (public guest pages), X (your own account via headless browser) | free, against their ToS (throwaway account) |
+| Phone alerts | free: ntfy.sh (`NTFY_TOPIC`) |
+| Similar researchers | free: OpenAlex. Keyless works in small daily batches; a free key (`OPENALEX_API_KEY`) scans everyone |
+| Email / essay drafting | $0 with built-in templates; or Claude Haiku (default model, cents per month) with `ANTHROPIC_API_KEY` |
+| Hosting | free: your own computer, or GitHub Actions (public repo = free minutes) |
+
+Matching is strict on purpose: the *title* must be an intern / fellowship / residency / research-assistant type role and the
+text must be AI-related, at a company in `targets.yaml`. Generic roles (e.g. plain "ML Intern") are skipped.

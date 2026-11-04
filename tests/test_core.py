@@ -77,3 +77,11 @@ def test_run_end_to_end(tmp_path, monkeypatch):
 def test_generic_roles_skipped():
     assert not matches(Posting("x", "Machine Learning Intern", "Co", "u1", "", "LLM research team"), ["research"], [], [], ["LLM"])
     assert matches(Posting("x", "Research Scientist Intern", "Co", "u2", "", "LLM"), ["research"], [], [], ["LLM"])
+
+
+def test_title_must_be_intern_type():
+    desc = "international team, internal tools, LLM research"
+    assert not matches(Posting("x", "Research Engineer, ML Infrastructure", "Co", "u3", "", desc), ["research"], [], [], ["LLM"])
+    assert not matches(Posting("x", "Research Fund Grants: Benchmarks", "Co", "u4", "", "fellow LLM"), ["research"], [], [], ["LLM"])
+    assert matches(Posting("x", "Research Intern", "Co", "u5", "", desc), ["research"], [], [], ["LLM"])
+    assert matches(Posting("x", "AI Research Fellowship", "Co", "u6", "", "LLM"), ["research", "fellow"], [], [], ["LLM"])

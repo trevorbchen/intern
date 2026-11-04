@@ -95,6 +95,9 @@ def find_researchers(targets, profile, resume="", top_per_company=6, db=None, si
         batch = None if os.environ.get("OPENALEX_API_KEY") else 6
     if db and batch:
         targets = sorted(targets, key=lambda t: db.get("scanned:" + t["name"], ""))[:batch]
+    if not terms:
+        print("[researchers] add `interests:` (and a `background:`) to profile.yaml so I know who is similar to you")
+        return []
     print(f"[researchers] matching on: {', '.join(terms[:12])}")
     found = []
     for t in targets:
