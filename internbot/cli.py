@@ -5,6 +5,16 @@ from .notify import export_csv, webhook
 from .sources import web, linkedin, twitter
 
 
+def load_env(path=".env"):
+    """Load KEY=VALUE lines from a local, gitignored .env (never committed)."""
+    if os.path.exists(path):
+        for line in open(path):
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
 def run(cfg_path="config.yaml", dry=False):
     cfg = yaml.safe_load(open(cfg_path))
     db = DB(cfg.get("db_path", "internbot.db"))
@@ -38,6 +48,7 @@ def main():
     ap.add_argument("--watch", action="store_true", help="run forever, re-scraping on an interval")
     ap.add_argument("--interval", type=int, help="minutes between runs (default: config interval_minutes or 30)")
     a = ap.parse_args()
+    load_env()
     if not a.watch:
         return run(a.config, a.dry_run)
     mins = a.interval or yaml.safe_load(open(a.config)).get("interval_minutes", 30)
