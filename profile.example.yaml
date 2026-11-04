@@ -9,10 +9,15 @@ github: ""
 location: "Boston, MA"
 school: "Example University"
 resume: ~/resume.pdf
+background: >
+  2-4 sentences about you: year/major, research experience, projects, skills. Claude may ONLY use
+  facts from this field and your resume - so put the real details here.
 cover_note: >
   I'm a student interested in research and would love to contribute to your team.
 apply:
   max_per_run: 5       # safety cap on applications per run
+  use_llm: true        # let Claude answer questions the `answers` patterns miss (needs ANTHROPIC_API_KEY)
+  submit_llm_answers: false  # false = if Claude wrote any answer, stop for your review instead of submitting
 
 # Question label (regex, case-insensitive) -> your answer. Matching dropdowns / text boxes get filled.
 # Anything NOT matched stays unanswered and the application is flagged needs_manual (never guessed).
