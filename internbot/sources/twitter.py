@@ -6,7 +6,7 @@ cookies from YOUR OWN logged-in browser session:
 Scraping X violates its ToS and can get the account rate-limited or suspended; use a throwaway
 account, keep volume low. Without cookies we still try (usually yields nothing).
 """
-import os, random, time
+import os, random, re, time
 from urllib.parse import quote
 from ..models import Posting
 
@@ -44,6 +44,30 @@ def _login(page):
     page.wait_for_selector("[data-testid='SideNav_AccountSwitcher_Button'], [data-testid='primaryColumn']",
                            timeout=20000)
     return True
+
+
+def parse_tweet(t):
+    """Turn a tweet <article> element into a Posting (with author handle + apply link)."""
+    try:
+        text = (t.query_selector("[data-testid='tweetText']") or t).inner_text()
+        time_el = t.query_selector("a[href*='/status/'] time")
+        status = time_el.evaluate("e => e.closest('a').href") if time_el else ""
+        posted = (time_el.get_attribute("datetime") if time_el else "") or ""
+        m = re.search(r"(?:x|twitter)\.com/([^/]+)/status/", status)
+        handle = "@" + m.group(1) if m else ""
+        apply_url = ""
+        for a in t.query_selector_all("a[href^='https://t.co/']"):  # visible text is the real URL
+            shown = a.inner_text().replace("…", "").strip()
+            if shown and "." in shown and not shown.startswith(("@", "#")):
+                apply_url = shown if shown.startswith("http") else "https://" + shown
+                break
+        url = status or apply_url
+        if not url:
+            return None
+        return Posting("twitter", text.replace("\n", " ")[:120], handle or "(tweet)", url,
+                       "", text, posted, handle, apply_url)
+    except Exception:
+        return None
 
 
 def fetch(cfg):
@@ -89,17 +113,8 @@ def fetch(cfg):
                 print(f"[twitter] '{q[:40]}' no results ({type(e).__name__}) - login wall?")
                 continue
             for t in tweets:
-                try:
-                    text = (t.query_selector("[data-testid='tweetText']") or t).inner_text()
-                    link = t.query_selector("a[href*='/status/'] time")
-                    status = link.evaluate("e => e.closest('a').href") if link else ""
-                    posted = link.get_attribute("datetime") if link else ""
-                    ext = [a.get_attribute("href") for a in t.query_selector_all("a[href^='https://t.co/']")]
-                    url = status or (ext[0] if ext else "")
-                    if url:
-                        yield Posting("twitter", text.replace("\n", " ")[:120], "(tweet)", url,
-                                      "", text, posted or "")
-                except Exception:
-                    continue
+                post = parse_tweet(t)
+                if post:
+                    yield post
             time.sleep(random.uniform(4, 8))
         browser.close()

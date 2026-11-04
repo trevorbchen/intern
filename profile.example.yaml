@@ -1,0 +1,15 @@
+# Copy to profile.yaml (gitignored - contains personal info) and fill in.
+first_name: Jane
+last_name: Doe
+email: jane@example.com
+phone: "555-123-4567"
+linkedin: https://www.linkedin.com/in/janedoe
+website: ""
+github: ""
+location: "Boston, MA"
+school: "Example University"
+resume: ~/resume.pdf
+cover_note: >
+  I'm a student interested in research and would love to contribute to your team.
+apply:
+  max_per_run: 5       # safety cap on applications per run

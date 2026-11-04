@@ -11,6 +11,8 @@ class Posting:
     location: str = ""
     description: str = ""
     posted: str = ""
+    handle: str = ""       # twitter author, e.g. @prof_smith
+    apply_url: str = ""    # external application link found in the post
 
     @property
     def uid(self) -> str:

@@ -6,9 +6,13 @@ def _has(text: str, terms) -> bool:
     return any(re.search(r"\b" + re.escape(t.lower()) + r"\b", text) for t in terms)
 
 
-def matches(p: Posting, keywords, exclude, locations) -> bool:
+def matches(p: Posting, keywords, exclude, locations, topics=(), exclude_companies=()) -> bool:
     text = f"{p.title} {p.description}".lower()
     title = p.title.lower()
+    if topics and not _has(text, topics):  # must be AI-related
+        return False
+    if any(c.lower() in p.company.lower() for c in exclude_companies if p.company):  # big corps
+        return False
     if not _has(text, keywords):
         return False
     if "intern" not in text and "reu" not in text and "research assistant" not in text:

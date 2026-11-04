@@ -1,40 +1,92 @@
-# Research-internship scraper config
-keywords:        # a posting must match at least one of these ...
+# Focus: AI-research internships at STARTUPS only.
+keywords:        # posting must be an internship/research role matching one of these ...
   - research intern
   - research internship
-  - research assistant
-  - summer research
-  - REU
   - research scientist intern
-  - machine learning research
-exclude:         # ... and none of these
+  - research engineer intern
+  - research assistant
+  - machine learning intern
+  - ML intern
+  - AI intern
+  - summer research
+topics:          # ... AND mention at least one of these AI topics
+  - AI
+  - machine learning
+  - deep learning
+  - LLM
+  - NLP
+  - language model
+  - reinforcement learning
+  - computer vision
+  - generative
+  - alignment
+  - foundation model
+exclude:         # title words to skip
   - senior
   - staff
   - principal
   - director
   - unpaid
-locations: []    # empty = any; e.g. ["Remote", "Boston", "United States"]
+exclude_companies:   # big tech / big corp = not a startup
+  - google
+  - alphabet
+  - meta
+  - microsoft
+  - amazon
+  - apple
+  - nvidia
+  - intel
+  - ibm
+  - oracle
+  - salesforce
+  - adobe
+  - qualcomm
+  - samsung
+  - tesla
+  - jpmorgan
+  - goldman
+  - bank of america
+  - deloitte
+  - accenture
+  - lockheed
+  - raytheon
+  - boeing
+  - university
+  - doordash
+  - bytedance
+  - tiktok
+  - xpeng
+  - uber
+  - netflix
+  - cisco
+  - siemens
+locations: []    # empty = any; e.g. ["Remote", "San Francisco", "United States"]
 
 sources:
-  greenhouse:    # board tokens: boards.greenhouse.io/<token>
+  greenhouse:    # AI startups on Greenhouse (verified boards); add more tokens: boards.greenhouse.io/<token>
     - anthropic
+    - scaleai
+    - databricks
+    - togetherai
+    - stabilityai
   lever:         # jobs.lever.co/<company>
-    - palantir
-  rss: []        # any RSS/Atom feed URLs of job postings
+    - mistral
+  rss: []
   linkedin:
     enabled: true
-    searches: ["research intern", "machine learning research intern", "research internship"]
+    searches: ["AI research intern startup", "machine learning research intern", "LLM research intern",
+               "AI research internship", "research scientist intern AI"]
     location: "United States"
     pages: 2
     delay_seconds: 3
-  twitter:       # headless-browser crawl of x.com; set X_AUTH_TOKEN + X_CT0 (your own session cookies)
+  twitter:       # headless-browser crawl of x.com; needs login (see README)
     enabled: true
     queries:
-      - '("research intern" OR "research internship" OR "REU") (hiring OR apply OR "now open") -is:retweet lang:en'
+      - '("research intern" OR "research internship") (AI OR ML OR LLM) (hiring OR apply OR "we are hiring") -is:retweet lang:en'
+      - '("AI startup" OR "we are a startup") (intern OR internship) (research OR "machine learning") (apply OR hiring) -is:retweet'
     scrolls: 3
 
 interval_minutes: 30   # used by --watch
 db_path: internbot.db
 export_csv: out/new_internships.csv
-# Optional: Slack/Discord-compatible webhook, or set INTERNBOT_WEBHOOK
 webhook_url: ""

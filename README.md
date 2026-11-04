@@ -1,5 +1,7 @@
 # internbot — research internship scraper
 
+**Scope: AI-research internships at startups only** (see `topics` and `exclude_companies` in `config.yaml`).
+
 Collects research-internship postings from the web (Greenhouse, Lever, RSS), LinkedIn and Twitter/X,
 filters by keywords, de-duplicates in SQLite, and reports only *new* postings (stdout, CSV, optional webhook).
 
@@ -22,3 +24,14 @@ Edit `config.yaml` for keywords, companies, and searches.
 - **LinkedIn**: reads the public logged-out search only (no login, rate-limited). LinkedIn's ToS
   prohibits scraping, so it may break or block you — disable under `sources.linkedin.enabled` if unsure.
 - Web sources use public job-board JSON APIs and RSS.
+
+## Applying, tracking, contacts
+```bash
+cp profile.example.yaml profile.yaml        # your details + resume path (gitignored)
+python -m internbot.cli --apply             # fills Greenhouse/Lever forms, does NOT submit (screenshots in apply_shots/)
+python -m internbot.cli --apply --submit    # actually submits (only when every required field is filled, no captcha)
+python -m internbot.cli --applied           # running list of everything applied to, with dates
+python -m internbot.cli --contacts          # Twitter handles + apply links found
+```
+Everything is also written to `out/applications.csv` and `out/contacts.csv`. Anything that can't be auto-filled
+(custom questions, dropdowns, captchas, LinkedIn/other sites) is logged as `needs_manual` with the link.
